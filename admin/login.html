@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CHAP-CHAP Admin - Connexion</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .login-card {
+            max-width: 400px;
+            width: 100%;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+        }
+        .card-header {
+            background: linear-gradient(135deg, #007bff, #0056b3);
+            color: white;
+            text-align: center;
+            border-radius: 10px 10px 0 0 !important;
+            padding: 20px;
+        }
+        .logo-container {
+            background-color: white;
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 15px auto;
+        }
+        .btn-primary {
+            background-color: #007bff;
+            border-color: #007bff;
+        }
+        .btn-primary:hover {
+            background-color: #0056b3;
+            border-color: #0056b3;
+        }
+        .form-floating label {
+            color: #6c757d;
+        }
+        .form-control:focus {
+            border-color: #007bff;
+            box-shadow: 0 0 0 0.25rem rgba(0, 123, 255, 0.25);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-12">
+                <div class="card login-card">
+                    <div class="card-header">
+                        <div class="logo-container">
+                            <i class="bi bi-phone-fill text-primary" style="font-size: 2.5rem;"></i>
+                        </div>
+                        <h4 class="mb-0">CHAP-CHAP Admin</h4>
+                    </div>
+                    <div class="card-body p-4">
+                        <h5 class="card-title text-center mb-4">Connexion administrateur</h5>
+                        
+                        <div id="alert-container"></div>
+                        
+                        <form id="login-form">
+                            <div class="form-floating mb-3">
+                                <input type="text" class="form-control" id="username" placeholder="Nom d'utilisateur" required>
+                                <label for="username"><i class="bi bi-person me-2"></i>Nom d'utilisateur</label>
+                            </div>
+                            
+                            <div class="form-floating mb-4">
+                                <input type="password" class="form-control" id="password" placeholder="Mot de passe" required>
+                                <label for="password"><i class="bi bi-lock me-2"></i>Mot de passe</label>
+                            </div>
+                            
+                            <div class="d-grid gap-2">
+                                <button class="btn btn-primary py-3" type="submit" id="login-btn">
+                                    <i class="bi bi-box-arrow-in-right me-2"></i>Se connecter
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="card-footer text-center bg-white py-3 border-0 rounded-bottom">
+                        <small class="text-muted">© 2025 CHAP-CHAP - Interface d'administration</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Configuration de l'API
+        const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+            ? `http://${window.location.hostname}:3000` 
+            : '';
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const loginForm = document.getElementById('login-form');
+            const loginBtn = document.getElementById('login-btn');
+            const alertContainer = document.getElementById('alert-container');
+
+            // Vérifier si l'utilisateur est déjà connecté
+            const token = getCookie('token');
+            if (token) {
+                // Rediriger vers le tableau de bord
+                window.location.href = '/admin';
+            }
+
+            loginForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                // Désactiver le bouton pendant la tentative de connexion
+                loginBtn.disabled = true;
+                loginBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Connexion...';
+                
+                const username = document.getElementById('username').value;
+                const password = document.getElementById('password').value;
+                
+                try {
+                    const response = await fetch(`${API_URL}/api/auth/login`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ username, password })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (response.ok) {
+                        // Connexion réussie
+                        showAlert('success', 'Connexion réussie ! Redirection...');
+                        
+                        // Stocker le token dans un cookie
+                        document.cookie = `token=${data.token}; path=/; max-age=43200`; // 12 heures
+                        
+                        // Rediriger vers le tableau de bord
+                        setTimeout(() => {
+                            window.location.href = '/admin';
+                        }, 1000);
+                    } else {
+                        // Échec de la connexion
+                        showAlert('danger', data.message || 'Identifiants incorrects. Veuillez réessayer.');
+                        loginBtn.disabled = false;
+                        loginBtn.innerHTML = '<i class="bi bi-box-arrow-in-right me-2"></i>Se connecter';
+                    }
+                } catch (error) {
+                    showAlert('danger', 'Erreur de connexion au serveur. Veuillez réessayer.');
+                    loginBtn.disabled = false;
+                    loginBtn.innerHTML = '<i class="bi bi-box-arrow-in-right me-2"></i>Se connecter';
+                }
+            });
+            
+            // Fonction pour afficher une alerte
+            function showAlert(type, message) {
+                alertContainer.innerHTML = `
+                    <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                        ${message}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                `;
+            }
+            
+            // Fonction pour récupérer un cookie
+            function getCookie(name) {
+                const value = `; ${document.cookie}`;
+                const parts = value.split(`; ${name}=`);
+                if (parts.length === 2) return parts.pop().split(';').shift();
+                return null;
+            }
+        });
+    </script>
+</body>
+</html>

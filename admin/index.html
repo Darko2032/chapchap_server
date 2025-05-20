@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CHAP-CHAP Admin</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <style>
+        .status-badge {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-weight: bold;
+            color: white;
+            font-size: 12px;
+        }
+        .status-en-attente {
+            background-color: #FFC107; /* Jaune */
+        }
+        .status-en-cours {
+            background-color: #17A2B8; /* Bleu clair */
+        }
+        .status-validee {
+            background-color: #28A745; /* Vert */
+        }
+        .status-effectuee {
+            background-color: #6610F2; /* Violet */
+        }
+        .status-annulee {
+            background-color: #6C757D; /* Gris */
+        }
+        .status-refusee {
+            background-color: #DC3545; /* Rouge */
+        }
+        .command-card {
+            transition: all 0.2s ease-in-out;
+            cursor: pointer;
+        }
+        .command-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+        .operator-circle {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+        .operator-orange {
+            background-color: #FF6600;
+        }
+        .operator-mtn {
+            background-color: #FFCC00;
+        }
+        .operator-moov {
+            background-color: #0066CC;
+        }
+        .accordion-button:not(.collapsed) {
+            background-color: #f8f9fa;
+            color: #212529;
+        }
+        .command-header {
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+        .refresh-animation {
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="#">
+                <i class="bi bi-phone-fill me-2"></i>
+                CHAP-CHAP Admin
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="#" id="refresh-btn">
+                            <i class="bi bi-arrow-clockwise me-1"></i> Actualiser
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Statistiques des commandes</h5>
+                        <div class="row text-center mt-3">
+                            <div class="col">
+                                <h3 id="total-count">0</h3>
+                                <p>Total</p>
+                            </div>
+                            <div class="col">
+                                <h3 id="pending-count">0</h3>
+                                <p>En attente</p>
+                            </div>
+                            <div class="col">
+                                <h3 id="validated-count">0</h3>
+                                <p>Validées</p>
+                            </div>
+                            <div class="col">
+                                <h3 id="completed-count">0</h3>
+                                <p>Effectuées</p>
+                            </div>
+                            <div class="col">
+                                <h3 id="cancelled-count">0</h3>
+                                <p>Annulées</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h4>Liste des commandes</h4>
+                    <div class="d-flex">
+                        <div class="btn-group me-2" role="group">
+                            <button type="button" class="btn btn-outline-secondary active" id="all-filter">Toutes</button>
+                            <button type="button" class="btn btn-outline-warning" id="pending-filter">En attente</button>
+                            <button type="button" class="btn btn-outline-info" id="in-progress-filter">En cours</button>
+                            <button type="button" class="btn btn-outline-success" id="validated-filter">Validées</button>
+                        </div>
+                        <div class="input-group">
+                            <input type="text" class="form-control" placeholder="Rechercher..." id="search-input">
+                            <button class="btn btn-outline-secondary" type="button" id="search-btn">
+                                <i class="bi bi-search"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row" id="commands-container">
+            <div class="col-12 text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Chargement...</span>
+                </div>
+                <p class="mt-2">Chargement des commandes...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal pour afficher et modifier les détails d'une commande -->
+    <div class="modal fade" id="commandModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Détails de la commande</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label"><strong>ID:</strong></label>
+                                <p id="modal-id" class="mb-0"></p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label"><strong>Date:</strong></label>
+                                <p id="modal-date" class="mb-0"></p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label"><strong>Réseau:</strong></label>
+                                <p id="modal-reseau" class="mb-0"></p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label"><strong>Type:</strong></label>
+                                <p id="modal-type" class="mb-0"></p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label"><strong>Numéro:</strong></label>
+                                <p id="modal-numero" class="mb-0"></p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label"><strong>Montant:</strong></label>
+                                <p id="modal-montant" class="mb-0"></p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label"><strong>Frais de service:</strong></label>
+                                <p id="modal-frais" class="mb-0"></p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label"><strong>Total:</strong></label>
+                                <p id="modal-total" class="mb-0"></p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row mb-3" id="forfait-container" style="display: none;">
+                        <div class="col-md-12">
+                            <div class="mb-3">
+                                <label class="form-label"><strong>Forfait:</strong></label>
+                                <p id="modal-forfait" class="mb-0"></p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label"><strong>Numéro de transaction:</strong></label>
+                                <p id="modal-numero-transaction" class="mb-0"></p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label"><strong>Statut actuel:</strong></label>
+                                <span id="modal-status-badge" class="status-badge"></span>
+                                <small id="modal-statut-date" class="d-block mt-1 text-muted"></small>
+                            </div>
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="mb-3">
+                        <label for="status-selector" class="form-label"><strong>Changer le statut:</strong></label>
+                        <select class="form-select" id="status-selector">
+                            <option value="En attente">En attente</option>
+                            <option value="En cours">En cours</option>
+                            <option value="Validée">Validée</option>
+                            <option value="Effectuée">Effectuée</option>
+                            <option value="Annulée">Annulée</option>
+                            <option value="Refusée">Refusée</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-danger me-auto" id="delete-command-btn">
+                        <i class="bi bi-trash"></i> Supprimer
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="button" class="btn btn-primary" id="save-status-btn">Enregistrer</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="bg-light py-3 mt-5">
+        <div class="container text-center">
+            <p class="mb-0">© 2025 CHAP-CHAP Admin - Tous droits réservés</p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
