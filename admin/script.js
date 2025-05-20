@@ -16,13 +16,12 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('delete-command-btn').addEventListener('click', deleteCurrentCommand);
     document.getElementById('export-csv').addEventListener('click', exportToCSV);
     
-    // Initialiser les écouteurs pour les actions de statut
-    const statusButtons = document.querySelectorAll('.dropdown-item[data-status]');
-    statusButtons.forEach(button => {
-        button.addEventListener('click', function() {
-            const status = this.getAttribute('data-status');
-            updateCommandStatus(currentCommandId, status);
-        });
+    // Initialiser l'écouteur pour le bouton de sauvegarde du statut
+    document.getElementById('save-status-btn').addEventListener('click', function() {
+        const newStatus = document.getElementById('status-selector').value;
+        if (currentCommandId && newStatus) {
+            updateCommandStatus(currentCommandId, newStatus);
+        }
     });
 });
 
@@ -173,12 +172,31 @@ function showCommandDetails(commandId) {
     document.getElementById('modal-transaction').textContent = command.numero_transaction || 'N/A';
     document.getElementById('modal-date').textContent = formatDate(command.date);
     document.getElementById('modal-forfait').textContent = command.forfait || 'N/A';
-    document.getElementById('modal-statut').textContent = command.statut || 'En attente';
+    
+    // Gérer l'affichage du forfait
+    if (command.type === 'Forfait' && command.forfait) {
+        document.getElementById('forfait-container').style.display = 'block';
+    } else {
+        document.getElementById('forfait-container').style.display = 'none';
+    }
+    
+    // Mettre à jour le statut dans le badge et dans le sélecteur
+    const currentStatus = command.statut || 'En attente';
+    document.getElementById('modal-statut').textContent = currentStatus;
     document.getElementById('modal-statut-date').textContent = command.statut_date ? formatDate(command.statut_date) : 'N/A';
     
     // Définir la couleur du statut
     const statusBadge = document.getElementById('modal-statut');
-    statusBadge.className = 'status-badge ' + getStatusClass(command.statut);
+    statusBadge.className = 'status-badge ' + getStatusClass(currentStatus);
+    
+    // Sélectionner le statut actuel dans le dropdown
+    const statusSelector = document.getElementById('status-selector');
+    for (let i = 0; i < statusSelector.options.length; i++) {
+        if (statusSelector.options[i].value === currentStatus) {
+            statusSelector.selectedIndex = i;
+            break;
+        }
+    }
     
     // Afficher ou masquer le bouton de suppression selon la vue
     const deleteButton = document.getElementById('delete-command-btn');
@@ -274,6 +292,21 @@ function toggleView() {
 
 // Mettre à jour le statut d'une commande
 function updateCommandStatus(commandId, newStatus) {
+    // Si on est en mode archive ou si le serveur n'est pas disponible, mettre à jour localement
+    if (currentView === 'archive') {
+        const commandIndex = archivedCommands.findIndex(cmd => cmd.id === commandId);
+        if (commandIndex !== -1) {
+            archivedCommands[commandIndex].statut = newStatus;
+            archivedCommands[commandIndex].statut_date = new Date().toISOString();
+            saveArchives();
+            bootstrap.Modal.getInstance(document.getElementById('commandModal')).hide();
+            displayCommands();
+            alert(`Statut mis à jour : ${newStatus}`);
+        }
+        return;
+    }
+
+    // Essayer de mettre à jour sur le serveur
     fetch(`/api/commandes/${commandId}/status`, {
         method: 'POST',
         headers: {
@@ -281,7 +314,12 @@ function updateCommandStatus(commandId, newStatus) {
         },
         body: JSON.stringify({ statut: newStatus })
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Erreur API');
+        }
+        return response.json();
+    })
     .then(data => {
         // Mettre à jour la commande dans la liste
         const commandIndex = allCommands.findIndex(cmd => cmd.id === commandId);
@@ -299,7 +337,34 @@ function updateCommandStatus(commandId, newStatus) {
     })
     .catch(error => {
         console.error('Erreur:', error);
-        alert('Erreur lors de la mise à jour du statut');
+        
+        // Vérifier si c'est juste un problème de serveur et mettre à jour localement
+        const commandIndex = allCommands.findIndex(cmd => cmd.id === commandId);
+        if (commandIndex !== -1) {
+            allCommands[commandIndex].statut = newStatus;
+            allCommands[commandIndex].statut_date = new Date().toISOString();
+            
+            // Essayer de sauvegarder dans le localStorage
+            try {
+                const prefs = localStorage.getItem('chapchap_commandes');
+                let localCommandes = prefs ? JSON.parse(prefs) : [];
+                
+                const localIndex = localCommandes.findIndex(cmd => cmd.id === commandId);
+                if (localIndex !== -1) {
+                    localCommandes[localIndex].statut = newStatus;
+                    localCommandes[localIndex].statut_date = new Date().toISOString();
+                    localStorage.setItem('chapchap_commandes', JSON.stringify(localCommandes));
+                }
+            } catch (e) {
+                console.error('Erreur localStorage:', e);
+            }
+            
+            bootstrap.Modal.getInstance(document.getElementById('commandModal')).hide();
+            displayCommands();
+            alert(`Statut mis à jour localement : ${newStatus}\n(Le serveur n'est pas accessible)`); 
+        } else {
+            alert('Erreur lors de la mise à jour du statut');
+        }
     });
 }
 
