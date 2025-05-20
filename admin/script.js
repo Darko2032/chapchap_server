@@ -23,6 +23,36 @@ document.addEventListener('DOMContentLoaded', function() {
             updateCommandStatus(currentCommandId, newStatus);
         }
     });
+
+    // Initialiser les écouteurs pour tous les filtres
+    document.getElementById('all-filter').addEventListener('click', function() {
+        setActiveFilter(this);
+        displayCommands();
+    });
+    document.getElementById('pending-filter').addEventListener('click', function() {
+        setActiveFilter(this);
+        displayFilteredCommands('En attente');
+    });
+    document.getElementById('in-progress-filter').addEventListener('click', function() {
+        setActiveFilter(this);
+        displayFilteredCommands('En cours');
+    });
+    document.getElementById('validated-filter').addEventListener('click', function() {
+        setActiveFilter(this);
+        displayFilteredCommands('Validée');
+    });
+
+    // Initialiser l'écouteur de la barre de recherche
+    document.getElementById('search-btn').addEventListener('click', function() {
+        const searchTerm = document.getElementById('search-input').value.toLowerCase();
+        displaySearchResults(searchTerm);
+    });
+    document.getElementById('search-input').addEventListener('keyup', function(event) {
+        if (event.key === 'Enter') {
+            const searchTerm = this.value.toLowerCase();
+            displaySearchResults(searchTerm);
+        }
+    });
 });
 
 // Charger les commandes archivées depuis le localStorage
@@ -73,6 +103,9 @@ function displayCommands() {
         const card = createCommandCard(command);
         commandsContainer.appendChild(card);
     });
+    
+    // Mettre à jour les statistiques
+    updateStatistics();
 }
 
 // Créer une carte pour une commande
@@ -307,8 +340,8 @@ function updateCommandStatus(commandId, newStatus) {
     }
 
     // Essayer de mettre à jour sur le serveur
-    fetch(`/api/commandes/${commandId}/status`, {
-        method: 'POST',
+    fetch(`/api/commandes/${commandId}`, {
+        method: 'PUT',
         headers: {
             'Content-Type': 'application/json',
         },
@@ -366,6 +399,99 @@ function updateCommandStatus(commandId, newStatus) {
             alert('Erreur lors de la mise à jour du statut');
         }
     });
+}
+
+// Fonction pour filtrer les commandes par statut
+function displayFilteredCommands(status) {
+    const commandsContainer = document.getElementById('commands-container');
+    commandsContainer.innerHTML = '';
+    
+    const commandsToDisplay = currentView === 'active' ? allCommands : archivedCommands;
+    const filteredCommands = commandsToDisplay.filter(cmd => cmd.statut === status);
+    
+    if (filteredCommands.length === 0) {
+        commandsContainer.innerHTML = `
+            <div class="col-12 text-center py-5">
+                <i class="bi bi-inbox display-1 text-muted"></i>
+                <h4 class="mt-3 text-muted">Aucune commande ${status}</h4>
+                <p class="text-muted">Aucune commande avec le statut "${status}" n'a été trouvée</p>
+            </div>
+        `;
+        return;
+    }
+    
+    filteredCommands.forEach(command => {
+        const card = createCommandCard(command);
+        commandsContainer.appendChild(card);
+    });
+    
+    // Mettre à jour les statistiques
+    updateStatistics();
+}
+
+// Fonction pour filtrer les commandes par terme de recherche
+function displaySearchResults(searchTerm) {
+    if (!searchTerm.trim()) {
+        displayCommands();
+        return;
+    }
+    
+    const commandsContainer = document.getElementById('commands-container');
+    commandsContainer.innerHTML = '';
+    
+    const commandsToDisplay = currentView === 'active' ? allCommands : archivedCommands;
+    const searchResults = commandsToDisplay.filter(cmd => 
+        (cmd.numero && cmd.numero.includes(searchTerm)) ||
+        (cmd.id && cmd.id.includes(searchTerm)) ||
+        (cmd.reseau && cmd.reseau.toLowerCase().includes(searchTerm)) ||
+        (cmd.numero_transaction && cmd.numero_transaction.includes(searchTerm))
+    );
+    
+    if (searchResults.length === 0) {
+        commandsContainer.innerHTML = `
+            <div class="col-12 text-center py-5">
+                <i class="bi bi-search display-1 text-muted"></i>
+                <h4 class="mt-3 text-muted">Aucun résultat</h4>
+                <p class="text-muted">Aucune commande correspondant à "${searchTerm}" n'a été trouvée</p>
+            </div>
+        `;
+        return;
+    }
+    
+    searchResults.forEach(command => {
+        const card = createCommandCard(command);
+        commandsContainer.appendChild(card);
+    });
+}
+
+// Fonction pour définir le filtre actif
+function setActiveFilter(element) {
+    const filters = document.querySelectorAll('.btn-group button');
+    filters.forEach(filter => {
+        filter.classList.remove('active');
+    });
+    element.classList.add('active');
+}
+
+// Fonction pour mettre à jour les statistiques
+function updateStatistics() {
+    const allCommands = currentView === 'active' ? allCommands : archivedCommands;
+    
+    document.getElementById('total-count').textContent = allCommands.length;
+    
+    const pendingCount = allCommands.filter(cmd => cmd.statut === 'En attente').length;
+    document.getElementById('pending-count').textContent = pendingCount;
+    
+    const validatedCount = allCommands.filter(cmd => cmd.statut === 'Validée').length;
+    document.getElementById('validated-count').textContent = validatedCount;
+    
+    const completedCount = allCommands.filter(cmd => cmd.statut === 'Effectuée').length;
+    document.getElementById('completed-count').textContent = completedCount;
+    
+    const cancelledCount = allCommands.filter(cmd => 
+        cmd.statut === 'Annulée' || cmd.statut === 'Refusée'
+    ).length;
+    document.getElementById('cancelled-count').textContent = cancelledCount;
 }
 
 // Exporter les données au format CSV
@@ -428,3 +554,6 @@ function displayError(message) {
         </div>
     `;
 }
+
+// Appel initial pour récupérer les commandes au chargement
+document.getElementById('refresh-btn').addEventListener('click', fetchCommands);
