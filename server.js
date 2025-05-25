@@ -67,11 +67,37 @@ async function writeCommandes(commandes) {
 
 // Routes API
 
-// Récupérer toutes les commandes
+// Récupérer toutes les commandes (avec filtrage par utilisateur)
 app.get('/api/commandes', async (req, res) => {
   try {
     const commandes = await readCommandes();
-    res.json(commandes);
+    
+    // Obtenir l'ID utilisateur à partir des en-têtes ou query params
+    const userId = req.headers['x-user-id'] || req.query.userId;
+    
+    // Si un ID utilisateur est fourni, filtrer les commandes
+    let filteredCommandes = commandes;
+    if (userId) {
+      filteredCommandes = commandes.filter(c => 
+        // Filtrer par ID utilisateur ou par numéro de téléphone
+        c.userId === userId || 
+        c.telephone === userId ||
+        c.client_id === userId
+      );
+    } else if (!req.headers['x-admin-access']) {
+      // Si pas d'ID utilisateur et pas accès admin, retourner seulement
+      // les commandes des 48 dernières heures (pour limiter la quantité)
+      const now = new Date();
+      const twoDaysAgo = new Date(now);
+      twoDaysAgo.setHours(now.getHours() - 48);
+      
+      filteredCommandes = commandes.filter(c => {
+        const commandeDate = new Date(c.date);
+        return commandeDate > twoDaysAgo;
+      }).slice(0, 10); // Limiter à 10 commandes récentes
+    }
+    
+    res.json(filteredCommandes);
   } catch (error) {
     res.status(500).json({ message: 'Erreur lors de la récupération des commandes', error: error.message });
   }
@@ -98,12 +124,17 @@ app.post('/api/commandes', async (req, res) => {
   try {
     const commandes = await readCommandes();
     
+    // Récupérer l'ID utilisateur depuis la requête
+    const userId = req.headers['x-user-id'] || req.query.userId || req.body.userId || req.body.telephone;
+    
     // Création d'une nouvelle commande avec statut "En attente" par défaut
     const nouvelleCommande = {
       ...req.body,
       id: req.body.id || Date.now().toString(),
+      userId: userId, // Stocker l'ID utilisateur pour faciliter le filtrage
       statut: 'En attente',
-      statut_date: new Date().toISOString()
+      statut_date: new Date().toISOString(),
+      date: new Date().toISOString() // S'assurer que toutes les commandes ont une date
     };
     
     commandes.push(nouvelleCommande);
