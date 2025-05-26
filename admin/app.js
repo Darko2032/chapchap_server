@@ -343,7 +343,11 @@ async function updateCommandStatus(id, newStatus) {
         // Mettre à jour la commande dans le tableau local
         const index = commands.findIndex(cmd => cmd.id === id);
         if (index !== -1) {
-            commands[index] = updatedCommand;
+            // Fusionner la commande mise à jour avec la commande existante
+            commands[index] = { ...commands[index], ...updatedCommand };
+            
+            // Mettre à jour la date de mise à jour du statut
+            commands[index].statut_date = new Date().toISOString();
         }
         
         // Fermer le modal
@@ -355,6 +359,9 @@ async function updateCommandStatus(id, newStatus) {
         // Mettre à jour l'affichage
         updateStatistics();
         renderCommands();
+        
+        // Rafraîchir la liste complète des commandes depuis le serveur
+        fetchCommands();
     } catch (error) {
         showAlert('danger', `Erreur lors de la mise à jour du statut: ${error.message}`);
         console.error('Erreur lors de la mise à jour du statut:', error);
