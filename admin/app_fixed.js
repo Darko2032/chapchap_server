@@ -357,10 +357,11 @@ function updateCommandStatus(id, newStatus) {
     }
     
     // Tenter de mettre à jour via l'API
-    fetch(`/api/commandes/${id}`, {
+    fetch(`${window.location.origin}/api/commandes/${id}`, {
         method: 'PUT',
         headers: {
             'Content-Type': 'application/json',
+            'Authorization': `Bearer ${getCookie('token')}`
         },
         body: JSON.stringify({ statut: newStatus })
     })
