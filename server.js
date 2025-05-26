@@ -43,7 +43,29 @@ app.use(session({
 }));
 
 // Middleware
-app.use(cors());
+// Configuration CORS pour autoriser les requêtes cross-origin
+app.use(cors({
+  origin: ["https://chapchap-ci.pages.dev", "http://localhost:3000", "http://localhost:5000", "http://localhost", "*"],
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "x-user-id", "x-admin-access"],
+  credentials: true
+}));
+
+// Middleware pour ajouter manuellement les en-têtes CORS (fallback)
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization, x-user-id, x-admin-access");
+  res.header("Access-Control-Allow-Credentials", "true");
+  
+  // Répondre immédiatement aux requêtes OPTIONS (pré-vol)
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  
+  next();
+});
+
 app.use(bodyParser.json());
 
 // Chemin du fichier pour stocker les commandes
