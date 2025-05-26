@@ -45,18 +45,45 @@ app.use(session({
 // Middleware
 // Configuration CORS pour autoriser les requêtes cross-origin
 app.use(cors({
-  origin: ["https://chapchap-ci.pages.dev", "http://localhost:3000", "http://localhost:5000", "http://localhost", "*"],
+  origin: (origin, callback) => {
+    const allowedOrigins = [
+      "https://chapchap-ci.pages.dev",
+      "http://localhost:3000",
+      "http://localhost:5000",
+      "http://localhost"
+    ];
+    
+    // Permettre les requêtes sans origine (comme les applications mobiles)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV !== 'production') {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "x-user-id", "x-admin-access"],
-  credentials: true
+  credentials: true,
+  maxAge: 86400 // 24 heures
 }));
 
 // Middleware pour ajouter manuellement les en-têtes CORS (fallback)
 app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "*");
-  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization, x-user-id, x-admin-access");
-  res.header("Access-Control-Allow-Credentials", "true");
+  const origin = req.headers.origin;
+  const allowedOrigins = [
+    "https://chapchap-ci.pages.dev",
+    "http://localhost:3000",
+    "http://localhost:5000",
+    "http://localhost"
+  ];
+
+  if (allowedOrigins.includes(origin) || process.env.NODE_ENV !== 'production') {
+    res.header("Access-Control-Allow-Origin", origin);
+    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization, x-user-id, x-admin-access");
+    res.header("Access-Control-Allow-Credentials", "true");
+  }
   
   // Répondre immédiatement aux requêtes OPTIONS (pré-vol)
   if (req.method === 'OPTIONS') {
