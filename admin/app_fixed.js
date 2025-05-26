@@ -1,9 +1,17 @@
 // JavaScript pour l'interface d'administration CHAP-CHAP
 // Variables globales
-let commands = [];
-let archivedCommands = [];
+const commands = [];
+const archivedCommands = [];
 let currentCommandId = null;
 let currentView = 'active';
+
+// Fonction pour récupérer un cookie
+function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(';').shift();
+    return null;
+}
 
 // Fonctions d'initialisation
 document.addEventListener('DOMContentLoaded', function() {
@@ -95,26 +103,31 @@ function fetchCommands() {
     refreshIcon.classList.add('refresh-animation');
     
     // Requête à l'API
-    fetch('/api/commandes')
-        .then(response => {
-            if (!response.ok) throw new Error('Erreur réseau');
-            return response.json();
-        })
-        .then(data => {
-            commands = data;
-            displayCommands();
-            updateStatistics();
-            
-            // Arrêter l'animation
-            refreshIcon.classList.remove('refresh-animation');
-        })
-        .catch(error => {
-            console.error('Erreur:', error);
-            displayError('Impossible de récupérer les commandes. Vérifiez la connexion au serveur.');
-            
-            // Arrêter l'animation
-            refreshIcon.classList.remove('refresh-animation');
-        });
+    fetch(`${window.location.origin}/api/commandes`, {
+        headers: {
+            'Authorization': `Bearer ${getCookie('token')}`
+        }
+    })
+    .then(response => {
+        if (!response.ok) throw new Error('Erreur réseau');
+        return response.json();
+    })
+    .then(data => {
+        commands.length = 0; // Vider le tableau existant
+        commands.push(...data); // Ajouter les nouvelles données
+        displayCommands();
+        updateStatistics();
+        
+        // Arrêter l'animation
+        refreshIcon.classList.remove('refresh-animation');
+    })
+    .catch(error => {
+        console.error('Erreur:', error);
+        displayError('Impossible de récupérer les commandes. Vérifiez la connexion au serveur.');
+        
+        // Arrêter l'animation
+        refreshIcon.classList.remove('refresh-animation');
+    });
 }
 
 // Charger les commandes archivées
@@ -427,8 +440,11 @@ function deleteCommand(id) {
         saveArchivedCommands();
         
         // Suppression via l'API
-        fetch(`/api/commandes/${id}`, {
-            method: 'DELETE'
+        fetch(`${window.location.origin}/api/commandes/${id}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${getCookie('token')}`
+            }
         })
         .then(response => {
             if (!response.ok) throw new Error(`Erreur HTTP: ${response.status}`);
