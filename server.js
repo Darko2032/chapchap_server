@@ -97,6 +97,11 @@ app.get('/api/commandes', async (req, res) => {
     // Obtenir l'ID utilisateur à partir des en-têtes ou query params
     const userId = req.headers['x-user-id'] || req.query.userId;
     
+    // Ajouter des en-têtes pour empêcher la mise en cache (résout problème de statut)
+    res.header("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    res.header("Pragma", "no-cache");
+    res.header("Expires", "0");
+    
     // Si un ID utilisateur est fourni, filtrer les commandes
     let filteredCommandes = commandes;
     if (userId) {
@@ -106,6 +111,32 @@ app.get('/api/commandes', async (req, res) => {
         c.telephone === userId ||
         c.client_id === userId
       );
+      
+      // SOLUTION AU PROBLÈME DE STATUT : S'assurer que les statuts sont clairement définis
+      filteredCommandes = filteredCommandes.map(commande => {
+        // S'assurer que le statut est bien défini, en majuscules et sans espaces superflus
+        if (commande.statut) {
+          commande.statut = commande.statut.trim();
+          
+          // Standardiser les statuts pour éviter les problèmes d'affichage
+          if (commande.statut.toLowerCase().includes('effectu')) {
+            commande.statut = 'Effectuée';
+          } else if (commande.statut.toLowerCase().includes('valid')) {
+            commande.statut = 'Validée';
+          } else if (commande.statut.toLowerCase().includes('annul')) {
+            commande.statut = 'Annulée';
+          } else if (commande.statut.toLowerCase().includes('refus')) {
+            commande.statut = 'Refusée';
+          } else if (commande.statut.toLowerCase().includes('cours')) {
+            commande.statut = 'En cours';
+          } else {
+            commande.statut = 'En attente';
+          }
+        } else {
+          commande.statut = 'En attente';
+        }
+        return commande;
+      });
     } else if (!req.headers['x-admin-access']) {
       // Si pas d'ID utilisateur et pas accès admin, retourner seulement
       // les commandes des 48 dernières heures (pour limiter la quantité)
@@ -129,10 +160,37 @@ app.get('/api/commandes', async (req, res) => {
 app.get('/api/commandes/:id', async (req, res) => {
   try {
     const commandes = await readCommandes();
-    const commande = commandes.find(c => c.id === req.params.id);
+    let commande = commandes.find(c => c.id === req.params.id);
     
     if (!commande) {
       return res.status(404).json({ message: 'Commande non trouvée' });
+    }
+    
+    // Ajouter des en-têtes pour empêcher la mise en cache (résout problème de statut)
+    res.header("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    res.header("Pragma", "no-cache");
+    res.header("Expires", "0");
+    
+    // SOLUTION AU PROBLÈME DE STATUT : S'assurer que le statut est clairement défini
+    if (commande.statut) {
+      commande.statut = commande.statut.trim();
+      
+      // Standardiser les statuts pour éviter les problèmes d'affichage
+      if (commande.statut.toLowerCase().includes('effectu')) {
+        commande.statut = 'Effectuée';
+      } else if (commande.statut.toLowerCase().includes('valid')) {
+        commande.statut = 'Validée';
+      } else if (commande.statut.toLowerCase().includes('annul')) {
+        commande.statut = 'Annulée';
+      } else if (commande.statut.toLowerCase().includes('refus')) {
+        commande.statut = 'Refusée';
+      } else if (commande.statut.toLowerCase().includes('cours')) {
+        commande.statut = 'En cours';
+      } else {
+        commande.statut = 'En attente';
+      }
+    } else {
+      commande.statut = 'En attente';
     }
     
     res.json(commande);
